@@ -1,0 +1,80 @@
+name: Build and release BDA
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Initialize pinned SDK
+        shell: pwsh
+        run: |
+          git submodule update --init sdk
+          if ($LASTEXITCODE) { throw 'SDK checkout failed' }
+          if ((git rev-parse HEAD:sdk) -ne (git -C sdk rev-parse HEAD)) { throw 'SDK mismatch' }
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install MIPS toolchain
+        shell: pwsh
+        run: ./sdk/scripts/setup_toolchain.ps1
+      - name: Test and build
+        shell: pwsh
+        run: |
+          python scripts/test.py
+          if ($LASTEXITCODE) { throw 'Host tests failed' }
+          python build.py
+          if ($LASTEXITCODE) { throw 'BDA build failed' }
+          python package_release.py
+          if ($LASTEXITCODE) { throw 'Packaging failed' }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bda-release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+  release:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: bda-release
+          path: dist
+      - name: Verify and publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($env:RELEASE_TAG -ne "v$version") { throw 'Tag and VERSION mismatch' }
+          foreach ($line in Get-Content dist/SHA256SUMS.txt) {
+            $parts = $line -split '  ', 2
+            $actual = (Get-FileHash (Join-Path dist $parts[1]) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $parts[0]) { throw "Checksum mismatch: $($parts[1])" }
+          }
+          $assets = @(Get-ChildItem dist -File | ForEach-Object FullName)
+          $args = @('release','create',$env:RELEASE_TAG) + $assets + @('--verify-tag','--title',"魔塔24层 $env:RELEASE_TAG",'--notes-file','RELEASE_NOTES.md')
+          if ($version.Contains('-')) { $args += '--prerelease' }
+          gh @args
+          if ($LASTEXITCODE) { throw 'Release creation failed; inspect existing release before retrying' }

@@ -1,0 +1,13 @@
+BBK9588-mota24
+Copyright 2026 HelloClyde
+
+Original application code and build/test scripts are licensed under Apache-2.0.
+This license does not grant rights to third-party maps, pixel artwork, fonts,
+trademarks, or their generated representations. See SOURCES.md.
+
+This is an independent unofficial adaptation. It is not endorsed by BBK or
+胖老鼠工作室. No firmware, NAND image, original font file, or device save is included.
+
+SDK: BBK 9588 Native BDA SDK, Copyright 2026 HelloClyde.
+The SDK offers Apache-2.0 OR GPL-2.0-only; this distribution uses Apache-2.0.
+See sdk/LICENSE and sdk/NOTICE for the original terms.

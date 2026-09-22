@@ -1,0 +1,12 @@
+/build/
+/dist/
+/qa/
+/.venv/
+__pycache__/
+*.pyc
+*.exe
+*.bda
+*.BDA
+*.bin
+*.SAV
+*.BAK
