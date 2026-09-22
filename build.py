@@ -12,7 +12,7 @@ def main():
     output=ROOT/'build/Mota24.bda';output.parent.mkdir(exist_ok=True)
     env=os.environ.copy();env['PYTHONPATH']=str(SDK);env['PYTHONUTF8']='1'
     env['BDA_SDK_INCLUDE']=str(SDK/'sdk/include')
-    cmd=[sys.executable,'-m','bda_packer',str(ROOT/'src/mota24.c'),'--title','魔塔24层','--category','4','-o',str(output)]
+    cmd=[sys.executable,'-m','bda_packer',str(ROOT/'src/mota24.c'),'--title','魔塔24层','--category','4','--icon-png',str(ROOT/'assets/mota24-icon.png'),'-o',str(output)]
     if args.prefix: cmd+=['--prefix',args.prefix]
     run(cmd,env=env)
     run([sys.executable,'-m','bda_packer.validate',str(output)],env=env)

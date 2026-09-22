@@ -12,7 +12,7 @@ shutil.copy2(ROOT/'build/build-info.json',out/'build-info.json')
 archive=out/('BBK9588-mota24-'+version+'.zip')
 with ZipFile(archive,'w',ZIP_DEFLATED) as z:
     z.write(bda,'应用/程序/Mota24.bda')
-    for name in ['README.md','LICENSE','NOTICE','SOURCES.md','docs/VERIFICATION.md']:z.write(ROOT/name,name)
+    for name in ['README.md','LICENSE','NOTICE','SOURCES.md','docs/VERIFICATION.md','assets/mota24-icon.png','assets/icon-design.md']:z.write(ROOT/name,name)
     z.write(out/'build-info.json','build-info.json')
     for screenshot in sorted((ROOT/'docs/screenshots').glob('*')):z.write(screenshot,screenshot.relative_to(ROOT).as_posix())
 files=[bda,archive,out/'build-info.json']
