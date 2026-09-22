@@ -14,7 +14,7 @@ with ZipFile(archive,'w',ZIP_DEFLATED) as z:
     z.write(bda,'应用/程序/Mota24.bda')
     for name in ['README.md','LICENSE','NOTICE','SOURCES.md','docs/VERIFICATION.md']:z.write(ROOT/name,name)
     z.write(out/'build-info.json','build-info.json')
-    for screenshot in sorted((ROOT/'docs/screenshots').glob('*.png')):z.write(screenshot,screenshot.relative_to(ROOT).as_posix())
+    for screenshot in sorted((ROOT/'docs/screenshots').glob('*')):z.write(screenshot,screenshot.relative_to(ROOT).as_posix())
 files=[bda,archive,out/'build-info.json']
 (out/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files),encoding='ascii')
 print(archive)

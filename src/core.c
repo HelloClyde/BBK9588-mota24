@@ -9,7 +9,7 @@ typedef struct {
 static Game g;
 static int mode,selection,shop,bookpage,quit_requested;
 static const char *notice;
-enum { PLAY, MENU, BOOK, FLY, SHOP, RESTART, WIN, HELP, TITLE, OPENING, DIALOG, ABOUT };
+enum { PLAY, MENU, BOOK, FLY, SHOP, RESTART, WIN, HELP, TITLE, OPENING, DIALOG, ABOUT, BATTLE };
 enum { INTRO=1,BOOKFLAG=2,FLYFLAG=4,CROSS=8,HAMMER=16,THIEF=32,ICE=64,SECRET=128,BLESS=256,PRINCESS=512,BOSS16=1024,BOSS19=2048,BOSS21=4096,FIRE=8192,HEART=16384,BLOOD=32768 };
 static int max(int a,int b){return a>b?a:b;}
 static int tile(int f,int x,int y){return x<0||x>10||y<0||y>10?1:g.map[f][y*11+x];}

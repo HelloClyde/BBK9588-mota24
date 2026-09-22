@@ -75,8 +75,46 @@ static int dialog_page,dialog_count;
 static void begin_dialog(const StoryPage *pages,int count){
     dialog_pages=pages;dialog_count=count;dialog_page=0;mode=DIALOG;hero_frame=0;repeat_direction=0;
 }
+/* Presentation advances independently; the deterministic core commits once. */
+static Enemy battle_enemy;
+static int battle_id,battle_dx,battle_dy,battle_hp,battle_hero_hp;
+static int battle_phase,battle_round,battle_last,battle_amount,battle_special;
+static u32 battle_due;
+static void finish_battle(void){
+    if(mode!=BATTLE)return;
+    mode=PLAY;move(battle_dx,battle_dy);hero_frame=0;repeat_direction=0;
+    if(mode==WIN)story_page=0;
+    dirty=1;
+}
+static int begin_battle(int dx,int dy,int id){
+    int loss=damage(id);
+    if(loss<0||loss>=g.hp)return 0;
+    battle_enemy=enemy(id);battle_id=id;battle_dx=dx;battle_dy=dy;
+    battle_hp=battle_enemy.hp;battle_hero_hp=g.hp;
+    battle_special=battle_enemy.special==22?battle_enemy.extra:battle_enemy.special==11?g.hp/4:0;
+    battle_phase=battle_special?0:1;battle_round=0;battle_last=3;battle_amount=0;
+    battle_due=input_now+6;mode=BATTLE;repeat_direction=0;hero_frame=0;dirty=1;return 1;
+}
+static void advance_battle(u32 now){
+    if(mode!=BATTLE||(s32)(now-battle_due)<0)return;
+    dirty=1;battle_due=now+6;
+    if(battle_phase==0){battle_hero_hp-=battle_special;battle_amount=battle_special;battle_last=2;battle_phase=1;}
+    else if(battle_phase==1){
+        int hit=g.atk-battle_enemy.def;
+        battle_round++;battle_amount=hit<battle_hp?hit:battle_hp;
+        battle_hp-=battle_amount;battle_last=0;
+        battle_phase=battle_hp?2:3;if(!battle_hp)battle_due=now+12;
+    }else if(battle_phase==2){
+        battle_amount=max(0,battle_enemy.atk-g.def);battle_hero_hp-=battle_amount;
+        battle_last=1;battle_phase=1;
+    }else finish_battle();
+}
 static void walk(int dx,int dy){
     int x=g.x,y=g.y,floor=g.floor,t=tile(g.floor,g.x+dx,g.y+dy);u32 flags=g.flags;
+    if(mode==PLAY&&t>=201&&t<300&&enemy_base[t].hp&&
+       !(floor==20&&x+dx==5&&y+dy==7)&&
+       !(floor==18&&x+dx==10&&y+dy==10&&!(g.flags&PRINCESS))&&
+       !(floor==21&&x+dx==5&&y+dy==0&&!(g.flags&BOSS21))&&begin_battle(dx,dy,t))return;
     move(dx,dy);if(mode==WIN)story_page=0;
     if(mode==PLAY&&t==124){
         if(floor==0){
@@ -171,7 +209,7 @@ static void render(void){
     }
     if(mode==TITLE||mode==OPENING||mode==WIN){render_story();return;}
     rect(0,0,240,320,DARK);text(8,4,"魔塔",GOLD);right_number(50,4,g.floor==26?24:g.floor>=23?23:g.floor,GOLD);text(54,4,"层",GOLD);
-    text(84,4,"生命",MUTED);right_number(168,4,g.hp,WHITE);text(180,4,"等级",MUTED);right_number(232,4,g.level,WHITE);
+    text(84,4,"生命",MUTED);right_number(168,4,mode==BATTLE?battle_hero_hp:g.hp,WHITE);text(180,4,"等级",MUTED);right_number(232,4,g.level,WHITE);
     text(8,21,"攻",RED);right_number(70,21,g.atk,WHITE);text(84,21,"防",BLUE);right_number(146,21,g.def,WHITE);text(160,21,"金",GOLD);right_number(232,21,g.gold,WHITE);
     key_icon(8,37,0);right_number(44,38,g.keys[0],WHITE);key_icon(54,37,1);right_number(90,38,g.keys[1],WHITE);key_icon(100,37,2);right_number(136,38,g.keys[2],WHITE);text(148,38,"经验",MUTED);right_number(232,38,g.exp,WHITE);
     border(7,53,226,226,0xbdf7);border(8,54,224,224,0x52aa);
@@ -193,6 +231,23 @@ static void render(void){
     if(mode==RESTART){panel("重新开始？");text(28,118,"当前未保存进度将丢失",WHITE);text(28,155,"确定开始新冒险",GOLD);text(28,188,"返回取消",MUTED);}
     if(mode==WIN){panel("冒险完成");text(28,116,g.floor==26?"二十四层：最终魔王已败":"二十一层：冥灵魔王已败",GOLD);text(28,155,"感谢勇士拯救魔塔",WHITE);text(28,194,"确定返回菜单",MUTED);}
     if(mode==HELP)render_help();
+    if(mode==BATTLE){
+        int hw=battle_hero_hp/max(1,g.hp/60),ew=battle_hp/max(1,battle_enemy.hp/60);
+        if(hw>60)hw=60;if(ew>60)ew=60;
+        panel("战斗中");text(30,100,"勇士",GOLD);text(138,100,battle_enemy.name,WHITE);
+        sprite(48+(battle_last==0?6:0),123,300+2);sprite(168-(battle_last==1?6:0),123,battle_id);
+        if(battle_last==0)border(164,119,28,28,RED);
+        if(battle_last==1||battle_last==2)border(44,119,28,28,RED);
+        text(101,128,"VS",GOLD);
+        border(29,155,62,7,MUTED);rect(30,156,hw,5,RED);
+        border(149,155,62,7,MUTED);rect(150,156,ew,5,RED);
+        right_number(96,171,battle_hero_hp,WHITE);right_number(216,171,battle_hp,WHITE);
+        text(30,199,"回合",MUTED);number(64,199,battle_round,WHITE);
+        text(30,220,battle_last==3?"准备交战":battle_last==0?"勇士攻击":battle_last==1?"怪物反击":"特殊伤害",GOLD);
+        if(battle_last!=3){text(140,220,"-",RED);number(152,220,battle_amount,RED);}
+        if(!battle_hp){text(30,244,"胜利！金币",GOLD);number(100,244,battle_enemy.gold,WHITE);text(137,244,"经验",GOLD);number(164,244,battle_enemy.exp,WHITE);}
+        else text(30,251,"确定：快速结束战斗",MUTED);
+    }
     if(mode==DIALOG){
         const StoryPage *p=&dialog_pages[dialog_page];
         rect(12,155,216,149,DARK);border(12,155,216,149,GOLD);
@@ -215,6 +270,7 @@ static void book(void){if(g.flags&BOOKFLAG){mode=BOOK;bookpage=0;}else notice="�
 static void fly(void){if((g.flags&FLYFLAG)&&g.floor<21){mode=FLY;selection=g.floor;}else notice="需要风之罗盘，21层起无法传送";}
 static void action(int key){
     dirty=1;
+    if(mode==BATTLE){if(key==5)finish_battle();return;}
     if(mode==ABOUT){if(key==4||key==5){mode=TITLE;selection=3;}return;}
     if(mode==DIALOG){if(key==5&&++dialog_page>=dialog_count){mode=PLAY;repeat_direction=0;}return;}
     if(mode==TITLE){
@@ -237,7 +293,8 @@ static void action(int key){
     if(key==5){if(mode==RESTART){new_game();story_page=0;mode=OPENING;}else if(mode==WIN){mode=MENU;selection=0;}else mode=PLAY;}
 }
 static void touch(u32 packed){int x=packed&65535,y=packed>>16;
-    if(mode==DIALOG){if(x>=12&&x<228&&y>=155&&y<304)action(5);}
+    if(mode==BATTLE){if(x>=14&&x<226&&y>=240&&y<277)action(5);}
+    else if(mode==DIALOG){if(x>=12&&x<228&&y>=155&&y<304)action(5);}
     else if(mode==TITLE){if(x>=38&&x<202&&y>=184&&y<274){selection=(y-184)/18;action(5);}}
     else if(mode==OPENING||mode==WIN){if(y>=176)action(5);}
     else if(mode==PLAY){if(y>=305){if(x<80)book();else if(x<160){mode=MENU;selection=0;}else fly();}
@@ -275,7 +332,7 @@ int bda_main(void){
     while(!detached){
         int pump=bda_gui_event_pump_frame_once(&m,frame);u32 now=bda_gui_tick_count_25ms();
         if(!closing){
-            input_now=now;animate_hero(now);
+            input_now=now;animate_hero(now);advance_battle(now);
             if(touch_pending){u32 v=touch_value;touch_pending=0;touch(v);}
             {bda_gui_input_packet_t p;u32 cur=0,pressed;bda_gui_input_packet(&p);for(i=0;i<6;i++)if(p.bytes[i]==1)cur|=1u<<i;
              pressed=input_edges(cur,now);

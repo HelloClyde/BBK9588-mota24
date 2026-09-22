@@ -78,7 +78,7 @@ int main(void){
     mode=TITLE;selection=2;action(5);assert(mode==HELP);action(4);assert(mode==TITLE);
     selection=0;touch((188u<<16)|100u);assert(mode==OPENING);action(4);assert(mode==PLAY);
     g.floor=26;g.x=4;g.y=5;g.atk=g.def=g.hp=1000000;g.map[26][5*11+5]=257;
-    walk(1,0);assert(mode==WIN&&story_page==0);action(5);assert(mode==WIN&&story_page==1);
+    walk(1,0);assert(mode==BATTLE);finish_battle();assert(mode==WIN&&story_page==0);action(5);assert(mode==WIN&&story_page==1);
     action(5);assert(mode==TITLE);action(4);assert(mode==TITLE);
     puts("PASS title/opening/help/skip and actual final-enemy ending transition");
     new_game();input_now=100;walk(0,-1);assert(mode==DIALOG&&dialog_count==16);
